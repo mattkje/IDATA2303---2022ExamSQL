@@ -23,45 +23,72 @@ VALUES (10, 'Sales',NULL,9003),
        (30, 'IT', 110, 9009),
        (90, 'Executive', 100, 9001);
 
---- Q1: Return the names of the country that contains locations without province information, remove the duplicates.
+-- Q1: Return the names of the country that contains locations without province information, remove the duplicates.
 
 SELECT Country
 FROM Location
-WHERE Province IS NULL;
+WHERE Province IS NOT NULL;
 
----Q2: Return the name and the number of employees of the two departments “IT” and “Executive”.
 
-SELECT Department.Department_name, COUNT(Employee.Employee_ID) AS Num_Employees
-FROM Employee
-JOIN Department ON Employee.Department_ID = Department.Department_ID
-WHERE Department.Department_name IN ('IT', 'Executive')
-GROUP BY Department.Department_name;
+-- Q2: Return the name and the number of employees of the two departments “IT” and “Executive”.
 
---Q3: Return the names of all the departments, their manager names, and their average
---salaries. Sort the output according to the average salary from highest to lowest and the
---department name alphabetically.
+SELECT Department_name, COUNT(Employee_ID) AS Employee_amount
+FROM Department AS d
+LEFT JOIN Employee E
+ON d.Department_ID = E.Department_ID
+WHERE d.Department_name IN ('IT', 'Executive')
+GROUP BY d.Department_name;
 
-SELECT D.Department_name, First_name AS Manager_Name, AVG(Employee.Salary) AS Average_Salary
-FROM Employee
-JOIN Department D on Employee.Department_ID = D.Department_ID
-WHERE D.Manager_ID IS NOT NULL
-GROUP BY D.Department_name;
 
---Q4: Return the employee’s first names and last names, whose department have the least average salary.
+-- Q3: Return the names of all the departments, their manager names, and their average
+-- salaries. Sort the output according to the average salary from highest to lowest and the
+-- department name alphabetically.
 
-SELECT Employee.First_name, Employee.Last_name
-FROM Employee
-JOIN Department D ON Employee.Department_ID = D.Department_ID
-WHERE D.Department_ID = (
-    SELECT Employee.Department_ID
-    FROM Employee
-    JOIN Department ON Employee.Department_ID = Department.Department_ID
-    GROUP BY Employee.Department_ID
-    ORDER BY AVG(Employee.Salary)
+SELECT d.Department_name, CONCAT(m.First_name, ' ', m.Last_name) AS Manager_Name, AVG(e.Salary) AS avg_salary
+FROM Department AS d
+LEFT JOIN Employee AS e ON d.Department_ID = e.Department_ID
+LEFT JOIN Employee AS m ON d.Manager_ID = m.Employee_ID
+WHERE e.First_name IS NOT NULL
+GROUP BY d.Department_name, m.First_name, m.Last_name
+ORDER BY avg_salary DESC, d.Department_name;
+
+
+
+-- Q4: Return the employee’s first names and last names, whose department have the least average salary.
+
+-- First find the department with the lowest ID
+SELECT e.Department_ID
+    FROM Employee AS e
+    JOIN Department AS dep ON e.Department_ID = dep.Department_ID
+    GROUP BY e.Department_ID
+    ORDER BY AVG(e.Salary)
+    LIMIT 1;
+
+-- Insert it in actual function
+SELECT e.First_name, e.Last_name
+FROM Employee AS e
+JOIN Department AS d ON e.Department_ID = d.Department_ID
+WHERE d.Department_ID = (
+    SELECT e.Department_ID
+    FROM Employee AS e
+    JOIN Department AS dep ON e.Department_ID = dep.Department_ID
+    GROUP BY e.Department_ID
+    ORDER BY AVG(e.Salary)
     LIMIT 1
 );
 
---Q5: Increase the salary by 2000 for all the employees working in the same department as the manager “Alexander”.
+
+
+-- Q5: Increase the salary by 2000 for all the employees working in the same department as the manager “Alexander”.
+
+-- First find the department where "Alexander" works
+
+SELECT Employee.Department_ID
+FROM Employee
+JOIN Department ON Employee.Department_ID = Department.Department_ID
+WHERE Employee.First_name IN ('Alexander');
+
+-- Then update the values
 
 UPDATE Employee
 SET Salary = Salary + 2000
@@ -72,17 +99,16 @@ WHERE Department_ID = (
     WHERE Employee.First_name IN ('Alexander')
     );
 
---Q6: Write a constraint to ensure that every department has less than 950 employees.
+
+-- Q6: Write a constraint to ensure that every department has less than 950 employees.
 -- (Hint: Assertion, no need to create table).
 
-ALTER TABLE Department
-ADD CONSTRAINT MaxEmployeesPerDept
-CHECK (
-    NOT EXISTS (
-        SELECT 1
-        FROM Employee E
-        WHERE E.Department_ID = Department.Department_ID
-        GROUP BY E.Department_ID
-        HAVING COUNT(*) >= 950
-    )
-);
+CREATE ASSERTION check_employee_count
+   CHECK (
+      NOT EXISTS (
+         SELECT Department_ID
+         FROM Employee
+         GROUP BY Department_ID
+         HAVING COUNT(*) >= 950
+      )
+   );
