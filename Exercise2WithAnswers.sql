@@ -77,4 +77,14 @@ WHERE Department_ID IN (
 -- Q6: Write a constraint to ensure that every department has less than 950 employees.
 -- (Hint: Assertion, no need to create table).
 
-CREATE ASSERTION check1 CHECK (COUNT(Department.Employee_ID) < 950;
+
+CREATE ASSERTION check1
+CHECK (
+    NOT EXISTS (
+        SELECT Department_ID
+        FROM Employee
+        GROUP BY Department_ID
+        HAVING COUNT(*) >= 950
+    )
+);
+
